@@ -1,0 +1,86 @@
+import requests
+import pytest
+from jsonschema import validate
+
+# Define station schema outside tests for better organization
+station_schema = {
+    "id": "integer",
+    "name": "string",
+    "latitude": "number",
+    "longitude": "number",
+    "icon": "integer",
+    "address": "string",
+    "city": "string",
+    "openHours": "string",
+    "providers": "string",
+    "pictures": "array[string]",
+    "isV2G": "boolean",
+    "eichrechtType": "string",
+    "termsAndConditionsUrlActingEmp": "string",
+    "termsLink": "string",
+}
+
+class Station:
+    """Represents a test station and its API interaction."""
+
+    def __init__(self, station_id: int):
+        self.station_id = station_id
+        self.base_url = f"https://api.virta.fi/v4/stations/{station_id}"
+
+    def get_station(self) -> requests.Response:
+        """Fetches station data from the API."""
+        return requests.get(url=self.base_url)
+
+class StationValidator:
+    """Validates a station response against a JSON schema."""
+
+    def __init__(self, response: requests.Response):
+        self.response = response
+
+    def validate(self, schema: dict) -> bool:
+        """Validates the response data against the provided schema.
+
+        Args:
+            schema (dict): The JSON schema to validate against.
+
+        Returns:
+            bool: True if the response is valid, False otherwise.
+        """
+        try:
+            validate(instance=self.response.json(), schema=schema)
+            return True
+        except jsonschema.exceptions.ValidationError as err:
+            print(f"Validation failed: {err}")
+            return False
+
+def test_station_status_code():
+    station = Station(233236)
+    response = station.get_station()
+    assert response.status_code == 200
+
+def test_valid_station_id():
+    station = Station(233236)
+    response = station.get_station()
+    data = response.json()
+    assert data['id'] == 233236
+
+def test_station_get(mocker, station_id=233236):
+    """Tests that Station.get_station retrieves data successfully."""
+
+    # Mock the requests.get call to avoid actual network calls during tests
+    mock_get = mocker.patch('requests.get')
+    mock_get.return_value = requests.Response()
+    mock_get.return_value.json.return_value = {'id': station_id, 'name': 'Test Station'}
+
+    station = Station(station_id)
+    response = station.get_station()
+
+    assert response.status_code == 200
+    assert response.json() == {'id': station_id, 'name': 'Test Station'}
+
+if __name__ == "__main__":
+    # Run tests using pytest
+    import pytest
+    pytest.main()
+
+
